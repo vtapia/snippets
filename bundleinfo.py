@@ -5,7 +5,6 @@ import os
 import subprocess
 import logging
 
-
 logger = logging.getLogger('bundle_info')
 
 ch = logging.StreamHandler()
@@ -27,9 +26,9 @@ def read_args():
 
 
 def parse_bundle(bundle):
-    charms = []
+    charms = {}
     for charm_name in bundle['openstack-services']['services']:
-        charms.append(charm_name)
+        charms[charm_name] = bundle['openstack-services']['services'][charm_name]['branch']
 
     return charms
 
@@ -56,7 +55,7 @@ def get_parameters(charms, repository):
 
         for p_name in parameters['options']:
             parameter = parameters['options'][p_name]
-            parameter_set = [charm_name, p_name, parameter['type'], parameter['default']]
+            parameter_set = [charm_name, charms[charm_name], p_name, parameter['type'], parameter['default']]
             parameters_list.append(parameter_set)
 
     return parameters_list
@@ -64,7 +63,7 @@ def get_parameters(charms, repository):
 
 def write_csv(parameters, csvfile):
     f = open(csvfile, 'w')
-    csv_header = ['Component name', 'Parameter Name', 'Parameter Type', 'Default value']
+    csv_header = ['Component name', 'Charm', 'Parameter Name', 'Parameter Type', 'Default value']
     csv_row = ','.join(value for value in csv_header)
     f.write(csv_row + '\n')
     for parameter in parameters:
