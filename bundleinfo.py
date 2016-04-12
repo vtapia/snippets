@@ -7,8 +7,12 @@ import logging
 
 logger = logging.getLogger('bundle_info')
 
+
+logging.addLevelName(logging.WARNING, "\033[1;31m%s" % logging.getLevelName(logging.WARNING))
+logging.addLevelName(logging.ERROR, "\033[1;41m%s" % logging.getLevelName(logging.ERROR))
+
 ch = logging.StreamHandler()
-fmt = logging.Formatter('%(asctime)s %(levelname)s: [bundle_info] %(message)s', datefmt='%d/%m/%Y %T')
+fmt = logging.Formatter('%(asctime)s %(levelname)s: %(message)s' + "\033[1;0m", datefmt='%d/%m/%Y %T')
 ch.setFormatter(fmt)
 logger.addHandler(ch)
 
@@ -27,10 +31,23 @@ def read_args():
 
 def parse_bundle(bundle):
     charms = {}
-    for charm_name in bundle['openstack-services']['services']:
-        charms[charm_name] = bundle['openstack-services']['services'][charm_name]['branch']
+    for phase in bundle:
+        logger.info("Parsing " + phase)
+        if 'services' in bundle[phase]:
+            for charm_name in bundle[phase]['services']:
+                if 'branch' in bundle[phase]['services'][charm_name]:
+                    charms[charm_name] = bundle[phase]['services'][charm_name]['branch']
+                elif 'charm' in bundle[phase]['services'][charm_name]:
+                    charms[charm_name] = bundle[phase]['services'][charm_name]['charm']
 
     return charms
+
+
+def component_name(charm_path):
+    component = charm_path.rsplit('/')[-1]
+    if component == "trunk":
+        component = charm_path.rsplit('/')[-2]
+    return component
 
 
 def download_charms(charms, repository):
@@ -40,22 +57,38 @@ def download_charms(charms, repository):
         logger.debug(out.communicate())
 
     for charm_name in charms:
-        cmd = ' '.join(['juju', 'charm', 'get', charm_name, repository])
-        out = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        logger.debug(out.communicate())
+        logger.info("Downloading " + charm_name)
+        origin = charms[charm_name].split(':')
+        if origin[0] == "cs":
+            cmd = ' '.join(['juju', 'charm', 'get', origin[1], repository])
+            out = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            logger.debug(out.communicate())
+        elif origin[0] == "lp":
+            cmd = ' '.join(['bzr', 'branch', charms[charm_name], repository + '/' + charm_name])
+            out = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            logger.debug(out.communicate())
 
 
 def get_parameters(charms, repository):
     parameters_list = []
     for charm_name in charms:
-        config_file = repository + '/' + charm_name + '/config.yaml'
+        component = component_name(charms[charm_name])
+        logger.info("Parsing " + charm_name + " (" + component + ")")
+        config_file = repository + '/' + component + '/config.yaml'
 
-        with open(config_file, 'r') as f:
-            parameters = yaml.load(f)
+        try:
+            with open(config_file, 'r') as f:
+                parameters = yaml.load(f)
+        except IOError:
+            logger.warning("Charm " + component + " does not include config.yaml")
 
         for p_name in parameters['options']:
             parameter = parameters['options'][p_name]
-            parameter_set = [charm_name, charms[charm_name], p_name, parameter['type'], parameter['default']]
+            if 'default' in parameter:
+                default_value = parameter['default']
+            else:
+                default_value = ""
+            parameter_set = [charm_name, component, charms[charm_name], p_name, parameter['type'], default_value]
             parameters_list.append(parameter_set)
 
     return parameters_list
@@ -63,7 +96,7 @@ def get_parameters(charms, repository):
 
 def write_csv(parameters, csvfile):
     f = open(csvfile, 'w')
-    csv_header = ['Component name', 'Charm', 'Parameter Name', 'Parameter Type', 'Default value']
+    csv_header = ['Service name', 'Component Name', 'Charm Path', 'Parameter Name', 'Parameter Type', 'Default value']
     csv_row = ','.join(value for value in csv_header)
     f.write(csv_row + '\n')
     for parameter in parameters:
@@ -82,13 +115,13 @@ def main():
     with open(args.bundle, 'r') as f:
         bundle = yaml.load(f)
 
-    logger.info("Parsing bundle " + args.bundle)
+    logger.info(" ----- Parsing bundle " + args.bundle + " -----")
     charms = parse_bundle(bundle)
-    logger.info("Downloading charms to " + args.repository)
+    logger.info(" ----- Downloading charms to " + args.repository + " -----")
     download_charms(charms, args.repository)
-    logger.info("Parsing parameters from charms")
+    logger.info(" ----- Parsing parameters from charms -----")
     parameters = get_parameters(charms, args.repository)
-    logger.info("Writing parameters and values in CSV format: " + args.csvfile)
+    logger.info(" ----- Writing parameters and values in CSV format: " + args.csvfile + " -----")
     write_csv(parameters, args.csvfile)
 
 
