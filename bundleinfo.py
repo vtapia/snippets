@@ -79,17 +79,18 @@ def get_parameters(charms, repository):
         try:
             with open(config_file, 'r') as f:
                 parameters = yaml.load(f)
+
+            for p_name in parameters['options']:
+                parameter = parameters['options'][p_name]
+                if 'default' in parameter:
+                    default_value = parameter['default']
+                else:
+                    default_value = ""
+                parameter_set = [charm_name, component, charms[charm_name], p_name, parameter['type'], default_value]
+                parameters_list.append(parameter_set)
+
         except IOError:
             logger.warning("Charm " + component + " does not include config.yaml")
-
-        for p_name in parameters['options']:
-            parameter = parameters['options'][p_name]
-            if 'default' in parameter:
-                default_value = parameter['default']
-            else:
-                default_value = ""
-            parameter_set = [charm_name, component, charms[charm_name], p_name, parameter['type'], default_value]
-            parameters_list.append(parameter_set)
 
     return parameters_list
 
@@ -97,10 +98,10 @@ def get_parameters(charms, repository):
 def write_csv(parameters, csvfile):
     f = open(csvfile, 'w')
     csv_header = ['Service name', 'Component Name', 'Charm Path', 'Parameter Name', 'Parameter Type', 'Default value']
-    csv_row = ','.join(value for value in csv_header)
+    csv_row = ';'.join(value for value in csv_header)
     f.write(csv_row + '\n')
     for parameter in parameters:
-        csv_row = ','.join(str(value) for value in parameter)
+        csv_row = ';'.join(str(value) for value in parameter)
         f.write(csv_row + '\n')
     f.close()
 
