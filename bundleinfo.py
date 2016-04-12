@@ -4,6 +4,7 @@ import argparse
 import os
 import subprocess
 import logging
+import string
 
 logger = logging.getLogger('bundle_info')
 
@@ -84,6 +85,8 @@ def get_parameters(charms, repository):
                 parameter = parameters['options'][p_name]
                 if 'default' in parameter:
                     default_value = parameter['default']
+                    if (bool(default_value)) and "\n" in str(default_value):
+                        default_value = default_value.translate(string.maketrans("\n", " "))
                 else:
                     default_value = ""
                 parameter_set = [charm_name, component, charms[charm_name], p_name, parameter['type'], default_value]
