@@ -40,6 +40,8 @@ def parse_bundle(bundle):
                     charms[charm_name] = bundle[phase]['services'][charm_name]['branch']
                 elif 'charm' in bundle[phase]['services'][charm_name]:
                     charms[charm_name] = bundle[phase]['services'][charm_name]['charm']
+                elif 'gitrepo' in bundle[phase]['services'][charm_name]:
+                    charms[charm_name] = bundle[phase]['services'][charm_name]['gitrepo']
 
     return charms
 
@@ -68,6 +70,10 @@ def download_charms(charms, repository):
             cmd = ' '.join(['bzr', 'branch', charms[charm_name], repository + '/' + charm_name])
             out = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             logger.debug(out.communicate())
+        elif origin[0] == "git":
+            cmd = ' '.join(['git', 'clone', charms[charm_name], repository + '/' + charm_name])
+            out = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            logger.debug(out.communicate())
 
 
 def get_parameters(charms, repository):
@@ -76,6 +82,9 @@ def get_parameters(charms, repository):
         component = component_name(charms[charm_name])
         logger.info("Parsing " + charm_name + " (" + component + ")")
         config_file = repository + '/' + component + '/config.yaml'
+        if os.path.isfile(config_file) is False:
+            # Fallback for certain naming conventions
+            config_file = repository + '/' + charm_name + '/config.yaml'
 
         try:
             with open(config_file, 'r') as f:
