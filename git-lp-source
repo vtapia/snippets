@@ -1,0 +1,21 @@
+#!/bin/bash
+
+usage () {
+	echo 'Usage: git-lp-source PKGNAME RELEASE'
+}
+
+if [ "$#" -gt 2 ] || [ "$#" -lt 1 ]; then usage; fi
+
+git clone https://git.launchpad.net/~usd-import-team/ubuntu/+source/$1
+
+if [ "$#" -eq 2 ]; then
+	cd $1; git ls-remote --heads | grep -q $2
+	BEXISTS=$(git branch -a | grep -x "^  remotes/origin/ubuntu/${2}$")
+	if [ $BEXISTS ]; then
+		git checkout ubuntu/$2
+		VER=$(dpkg-parsechangelog -S Version| sed -rne 's,([^-\+]+)+(\+dfsg)*.*,\1,p'i)
+		tar czf ../$1_${VER}.orig.tar.gz . --exclude debian --exclude .git
+	else
+		echo "Warning: ubuntu/$2 does not exist for $1. Not tar file will be created."
+	fi
+fi
