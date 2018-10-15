@@ -11,7 +11,9 @@ function prepare_tracer {
         #select tracer
         echo 'function' > ${DEBUGFS}/tracing/current_tracer
         #filter function
-        #echo kvm* > ${DEBUGFS}/tracing/set_ftrace_filter
+        echo kvm* > ${DEBUGFS}/tracing/set_ftrace_filter
+        echo virtio* >> ${DEBUGFS}/tracing/set_ftrace_filter
+        echo vhost* >> ${DEBUGFS}/tracing/set_ftrace_filter
         #filter PID
         PID=$(grep '<domstatus' /var/run/libvirt/qemu/${INSTANCE}.xml | awk -F \' '{print $6}')
 	echo $PID
@@ -38,6 +40,7 @@ while true; do
         sleep 120
         cat /sys/kernel/debug/tracing/trace > /home/ubuntu/${INSTANCE}.txt
         echo 0 > /sys/kernel/debug/tracing/tracing_on
-        sleep 120
+        sleep 30
+	echo $RCOUNT
 done
 
